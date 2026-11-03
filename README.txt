@@ -1,1 +1,0 @@
-FORMA 3D model test. Extract the entire ZIP. Host the folder with a static website server (e.g. Netlify Drop). Open index.html on the hosted website. Assets load automatically. The original Master V1 is unchanged. Textures converted from EXR to 1024px PNG for mobile. Height maps omitted. The OBJ may not have a separately selectable drawer. Internet required for Three.js CDN.
