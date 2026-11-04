@@ -1,0 +1,1148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#10141c">
+  <meta name="description" content="A mobile-first 3D model viewer for GLB, GLTF, OBJ, STL, FBX and PLY files.">
+  <title>Forma — Mobile 3D Viewer</title>
+  <style>
+    :root { color-scheme: dark; --page:#0d1118;--surface:#151b25;--surface-2:#1a2330;--edge:#2b3543;--text:#f0f4f8;--muted:#91a0b2;--accent:#b5f08e;--accent-ink:#1d3218;--round:18px;--shadow:0 18px 75px rgba(0,0,0,.42);font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif }
+    * { box-sizing: border-box; }
+    [hidden] { display:none!important; }
+    html,body { margin:0;width:100%;height:100%;min-height:100%;overflow:hidden;background:var(--page);color:var(--text); }
+    button, input, select { font:inherit; }
+    button { cursor:pointer;-webkit-tap-highlight-color:transparent; }
+    button:focus-visible, input:focus-visible, select:focus-visible { outline:2px solid var(--accent);outline-offset:3px; }
+    .app {height:100dvh;min-height:500px;display:flex;flex-direction:column;padding:14px;gap:14px; }
+    .topbar { height:62px; flex:none;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:0 10px; }
+    .brand {display:flex;align-items:center;gap:12px;min-width:0;}
+    .brand-symbol {width:42px;height:42px;border-radius:14px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;flex:none; }
+    .brand-word {display:flex;flex-direction:column;line-height:1.18;gap:5px;}
+    .brand-word strong {font-weight:750;letter-spacing:-.045em;font-size:22px;}
+    .brand-word small {font-size:9px;font-weight:700;letter-spacing:.21em;color:var(--muted);}
+    .top-actions { display:flex;align-items:center;gap:9px; }
+    .status-chip {border:1px solid var(--edge);padding:9px 13px;border-radius:100px;color:var(--muted);font-size:12px;display:flex;align-items:center;gap:8px;white-space:nowrap;}
+    .status-dot {height:7px;width:7px;border-radius:100%;background:var(--accent);box-shadow:0 0 12px rgba(181,240,142,.5);}
+    .btn {border:1px solid var(--edge);background:var(--surface);color:var(--text);min-height:44px;padding:0 16px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;gap:9px;font-size:13px;font-weight:650;transition:background .2s,transform .2s,border-color .2s;user-select:none;}
+    .btn:active {transform:scale(.97)}
+    .btn:hover {background:#243044;border-color:#425165}
+    .btn-primary {background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+    .btn-primary:hover {background:#c5f4a7;border-color:#c5f4a7;}
+    .btn svg,.icon-btn svg,.brand-symbol svg {width:18px;height:18px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round;flex:none;}
+    .workspace {flex:1;display:grid;grid-template-columns:minmax(0,1fr) 306px;gap:14px;min-height:0;}
+    .viewer {position:relative;min-width:0;min-height:0;border:1px solid #2b3442;border-radius:22px;overflow:hidden;background:#dce1e5;isolation:isolate;}
+    #canvasHost {position:absolute;inset:0;touch-action:none;}
+    #canvasHost canvas {display:block;width:100%;height:100%;touch-action:none;outline:none;}
+    .vignette {position:absolute;inset:0;pointer-events:none;background:linear-gradient(to bottom,rgba(8,15,25,.13),transparent 24%,transparent 70%,rgba(8,15,25,.17));}
+    .model-heading {position:absolute;top:20px;right:22px;left:auto;pointer-events:none;max-width:calc(100% - 180px);text-align:right;color:#202b37;text-shadow:0 1px 4px rgba(255,255,255,.6)}
+    .model-heading .eyebrow {display:block;font-size:10px;letter-spacing:.18em;font-weight:750;color:#4e6072;margin-bottom:7px;}
+    .model-heading h1 {font-size:clamp(22px,2.5vw,32px);letter-spacing:-.055em;line-height:1.1;font-weight:750;margin:0;overflow-wrap:anywhere;}
+    .model-heading p {font-size:12px;margin:8px 0 0;color:#526375;}
+    .axis-label {position:absolute;right:22px;top:20px;pointer-events:none;color:#667788;font-size:10px;letter-spacing:.15em;font-weight:700;}
+    .viewer-tip {position:absolute;left:50%;bottom:112px;transform:translateX(-50%);white-space:nowrap;background:rgba(20,30,41,.64);backdrop-filter:blur(10px);color:#f8fafb;border:1px solid rgba(255,255,255,.18);border-radius:100px;padding:10px 16px;font-size:12px;pointer-events:none;transition:opacity .5s;}
+    .viewer-tip.hidden {opacity:0;}
+    .tool-dock {position:absolute;bottom:23px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:6px;padding:7px;border:1px solid rgba(255,255,255,.36);border-radius:18px;background:rgba(16,23,32,.9);backdrop-filter:blur(18px);box-shadow:0 15px 28px rgba(17,27,39,.22);z-index:2;}
+    .icon-btn {width:44px;height:44px;display:grid;place-items:center;flex:none;color:#dae3ed;background:transparent;border:0;border-radius:12px;position:relative;}
+    .icon-btn:hover,.icon-btn[aria-pressed="true"] {background:#2d3c4d;color:var(--accent);}
+    .icon-btn[aria-pressed="true"]:after {content:"";position:absolute;bottom:3px;width:4px;height:4px;border-radius:50%;background:var(--accent)}
+    .dock-sep {height:22px;width:1px;background:#435063;margin:0 2px;}
+    .sidebar {min-height:0;overflow-y:auto;border-radius:20px;border:1px solid var(--edge);background:var(--surface);padding:21px;scrollbar-width:thin;scrollbar-color:#3f4c5e transparent;}
+    .panel-heading {display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:16px;}
+    .panel-heading h2 {font-size:16px;letter-spacing:-.02em;margin:0;font-weight:700;}
+    .panel-heading .micro {font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700;}
+    .dropzone {border:1.5px dashed #53616c;background:#1c2731;border-radius:16px;padding:22px 12px;text-align:center;display:flex;align-items:center;flex-direction:column;gap:8px;cursor:pointer;transition:border .2s,background .2s;}
+    .dropzone:hover,.dropzone.dragging {border-color:var(--accent);background:#27362d;}
+    .drop-icon {width:48px;height:48px;display:grid;place-items:center;border-radius:15px;background:#2e3c45;color:var(--accent);margin-bottom:6px;}
+    .drop-icon svg {width:22px;height:22px;stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+    .dropzone strong {font-size:13px;}
+    .dropzone span {font-size:11px;line-height:1.5;color:var(--muted);}
+    .filetypes {display:flex;gap:5px;justify-content:center;flex-wrap:wrap;margin-top:3px;}
+    .filetypes em {font-size:9px;border:1px solid #526174;border-radius:6px;color:#b6c3cd;padding:4px 6px;font-style:normal;font-weight:650;}
+    .section {margin-top:26px;padding-top:24px;border-top:1px solid var(--edge);}
+    .section-title {font-size:10px;letter-spacing:.15em;color:var(--muted);font-weight:750;margin-bottom:16px;display:block;}
+    .meta-card {display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+    .meta-card .k {display:block;font-size:10px;color:var(--muted);margin-bottom:5px;}
+    .meta-card .v {display:block;font-size:14px;font-weight:700;letter-spacing:-.01em;overflow-wrap:anywhere;}
+    .segmented {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));background:#0c131c;padding:4px;border-radius:11px;gap:3px;}
+    .segmented button {border:0;background:transparent;color:#a0aebe;font-size:11px;min-height:37px;border-radius:8px;font-weight:700;}
+    .segmented button[aria-pressed="true"] {background:#344151;color:#fff;}
+    .switch-line {display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:17px;color:#d8e0e9;font-size:13px;}
+    .switch {display:inline-flex;align-items:center;width:42px;height:25px;border-radius:40px;background:#3b4656;border:0;padding:3px;transition:background .2s;flex:none;}
+    .switch:after {content:"";height:19px;width:19px;background:#c4ccd5;box-shadow:0 1px 4px rgba(0,0,0,.2);border-radius:50%;transition:transform .2s;}
+    .switch[aria-pressed="true"] {background:var(--accent);}
+    .switch[aria-pressed="true"]:after {transform:translateX(17px);background:#243b19;}
+    .range-wrap {display:flex;justify-content:space-between;align-items:center;margin-top:19px;margin-bottom:9px;font-size:13px;}
+    .range-wrap output {color:var(--muted);font-size:12px;}
+    input[type="range"] {width:100%;height:22px;accent-color:var(--accent);cursor:pointer;margin:0;}
+    .panel-footer {border-top:1px solid var(--edge);margin-top:25px;padding-top:18px;font-size:11px;line-height:1.6;color:var(--muted);}
+    .panel-footer a {color:var(--accent)}
+    .mobile-settings, .close-panel, .scrim {display:none;}
+    .busy-cover {position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(10,15,23,.43);z-index:4;backdrop-filter:blur(3px);}
+    .busy-cover.active {display:flex;}
+    .busy-box {background:#111924;color:#f6f9fa;border-radius:18px;padding:25px;min-width:230px;max-width:80%;box-shadow:var(--shadow);text-align:center;}
+    .spinner {width:30px;height:30px;margin:0 auto 13px;border:3px solid #425162;border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;}
+    @keyframes spin {to{transform:rotate(360deg)}}
+    .busy-box strong {display:block;font-size:14px;margin-bottom:7px;}
+    .busy-box span {font-size:12px;color:#a9b6c4;}
+    .progress {height:4px;width:100%;border-radius:5px;background:#384658;margin-top:17px;overflow:hidden;}
+    .progress i {display:block;height:100%;width:15%;background:var(--accent);border-radius:5px;transition:width .2s;}
+    .toast {position:absolute;top:18px;left:50%;transform:translateX(-50%) translateY(-15px);opacity:0;pointer-events:none;max-width:calc(100% - 40px);background:#17212d;color:white;padding:12px 17px;border-radius:12px;border:1px solid #4c6175;z-index:8;box-shadow:var(--shadow);font-size:12px;transition:opacity .2s,transform .2s;line-height:1.5;text-align:center;}
+    .toast.visible {opacity:1;transform:translateX(-50%) translateY(0)}
+    .kbd {font-family:inherit;border:1px solid #53616b;border-radius:5px;padding:1px 4px;}
+    /* Simplified viewer: retain configuration controls in DOM for existing JS, but hide the menu. */
+    .workspace {grid-template-columns:minmax(0,1fr);}
+    #settingsPanel, #settingsBtn, #scrim {display:none!important;}
+    #drawerViewToggle {position:absolute;top:18px;left:20px;z-index:3;min-height:46px;padding:0 18px;border:1px solid #405265;border-radius:12px;background:#17212d;color:#fff;font-size:14px;font-weight:700;box-shadow:0 5px 16px #0003;}
+    #drawerViewToggle:hover {background:#26394b;}
+    #drawerQuickControls{position:absolute;top:76px;left:20px;z-index:3;display:flex;flex-wrap:wrap;gap:7px;max-width:min(390px,75%)}
+    #drawerQuickControls button{background:#17212d;color:#fff;border:1px solid #405265;border-radius:9px;padding:9px 11px;font-size:12px;font-weight:650}
+    #drawerQuickControls button[aria-pressed='true']{background:#b5f08e;color:#1d3218}
+    #drawerQuickControls,#drawerControls{display:none!important}
+    #modelNav{position:absolute;bottom:24px;left:20px;right:20px;z-index:4;display:flex;justify-content:space-between;pointer-events:none}
+    #modelNav button{pointer-events:auto;width:48px;height:48px;border:1px solid #536578;border-radius:50%;background:rgba(20,30,41,.88);color:white;font-size:30px;line-height:1;box-shadow:0 5px 18px #0004}
+    #modelNav button:disabled{opacity:.3;cursor:not-allowed}
+    @media(max-width:840px){#modelNav{bottom:calc(86px + env(safe-area-inset-bottom));left:14px;right:14px}}
+    @media(max-width:840px) {
+      .app {padding:0;gap:0;min-height:0;}
+      .topbar {height:66px;padding:0 15px;border-bottom:1px solid var(--edge);}
+      .brand-symbol {width:38px;height:38px;border-radius:12px;}
+      .brand-word strong {font-size:21px;}
+      .status-chip {display:none;}
+      .top-actions .btn {min-height:40px;padding:0 12px;font-size:12px;}
+      #screenshotBtn {width:40px;padding:0;}
+      #screenshotBtn span {display:none;}
+      .workspace {display:block;position:relative;flex:1;}
+      .viewer {width:100%;height:100%;border:0;border-radius:0;}
+      .model-heading {top:20px;left:auto;right:19px;max-width:calc(100% - 175px);text-align:right;}
+      .model-heading h1 {font-size:25px;max-width:240px;}
+      .model-heading p {font-size:11px;}
+      .axis-label {right:19px;top:24px;}
+      .viewer-tip {bottom:109px;max-width:calc(100% - 30px);text-overflow:ellipsis;overflow:hidden;}
+      .tool-dock {bottom:calc(18px + env(safe-area-inset-bottom));max-width:calc(100% - 25px);gap:3px;padding:5px;}
+      .icon-btn {width:43px;height:45px;}
+      .mobile-settings {display:grid;}
+      .sidebar {position:absolute;z-index:7;bottom:0;left:0;right:0;max-height:min(80dvh,720px);overflow-y:auto;border-radius:24px 24px 0 0;border:1px solid #506070;background:#161e29;box-shadow:0 -16px 60px rgba(0,0,0,.4);padding:23px 22px calc(25px + env(safe-area-inset-bottom));transform:translateY(105%);visibility:hidden;transition:transform .26s ease,visibility .26s;overscroll-behavior:contain;}
+      .sidebar.open {transform:translateY(0);visibility:visible;}
+      .scrim {display:block;position:absolute;inset:0;border:0;background:rgba(5,9,15,.47);z-index:6;opacity:0;pointer-events:none;transition:opacity .26s;}
+      .scrim.open {opacity:1;pointer-events:auto;}
+      .close-panel {display:grid;place-items:center;align-items:center;border:1px solid var(--edge);background:#2b3746;color:#f2f6f8;width:33px;height:33px;border-radius:9px;}
+      .close-panel svg {width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2;}
+      .panel-heading h2 {font-size:18px;}
+      .dropzone {padding:16px;}
+    }
+    @media(max-width:390px) {
+      .brand-word small {font-size:8px;letter-spacing:.12em;}
+      .top-actions .btn {padding:0 10px;}
+      .icon-btn {width:39px;height:44px;}
+      .tool-dock {gap:1px;}
+      .viewer-tip {font-size:11px;}
+    }
+    @media(prefers-reduced-motion:reduce){*,*:before,*:after {transition-duration:.01ms!important;animation-duration:.01ms!important;}}
+
+/* Furniture collection launcher */
+#catalogueScreen{position:fixed;inset:0;z-index:25;background:linear-gradient(145deg,#101720,#1b2936);color:#f2f6fa;display:flex;align-items:center;justify-content:center;padding:24px;overflow:auto}
+#catalogueScreen[hidden]{display:none!important}
+.cataloguePanel{width:min(880px,100%)}
+.catalogueEyebrow{font-size:11px;font-weight:800;letter-spacing:.2em;color:#b5f08e}
+.cataloguePanel h1{font-size:clamp(30px,5vw,54px);letter-spacing:-.05em;margin:12px 0}
+.cataloguePanel p{color:#b4c1ce;font-size:14px;line-height:1.6;margin-bottom:28px}
+.catalogueGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:15px}
+.catalogueTile{min-height:155px;text-align:left;border:1px solid #425468;border-radius:19px;background:#243444;color:#fff;padding:22px;display:flex;flex-direction:column;justify-content:flex-end;gap:9px;cursor:pointer;transition:background .15s,transform .15s}
+.catalogueTile:hover,.catalogueTile:focus-visible{background:#354c60;transform:translateY(-2px)}
+.catalogueTile strong{font-size:21px}.catalogueTile small{color:#c4d0dd;font-size:12px}
+.catalogueBack{background:none;border:1px solid #63768a;color:#fff;border-radius:10px;padding:10px 16px;margin-bottom:20px}
+#catalogueReturn{display:none;margin-right:8px}
+body.catalogueViewing #catalogueReturn{display:inline-flex}
+@media(max-width:600px){.catalogueGrid{grid-template-columns:1fr}.catalogueTile{min-height:105px}}
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+
+  <div id="catalogueScreen" role="dialog" aria-modal="true" aria-label="Furniture collections">
+    <div class="cataloguePanel">
+      <span class="catalogueEyebrow">FURNITURE COLLECTIONS</span>
+      <h1 id="catalogueTitle">Choose a furniture range</h1>
+      <p id="catalogueDescription">Select OPUS to open the furniture viewer.</p>
+      <button id="catalogueBack" class="catalogueBack" type="button" hidden>← All collections</button>
+      <div id="catalogueGrid" class="catalogueGrid"></div>
+    </div>
+  </div>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand" aria-label="Forma 3D Viewer">
+        <div class="brand-symbol"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 9 5v10l-9 5-9-5V7z"/><path d="m3 7 9 5 9-5M12 12v10"/></svg></div>
+        <div class="brand-word"><strong>forma<span style="color:var(--accent)">.</span></strong><small>3D MODEL VIEWER</small></div>
+      </div>
+      <div class="top-actions">
+        <button class="btn" id="catalogueReturn" type="button">← Collections</button>
+        <span class="status-chip"><span class="status-dot"></span>Viewer ready</span>
+        <button class="btn" id="screenshotBtn" type="button" title="Save PNG screenshot"><svg viewBox="0 0 24 24"><path d="M4 7V4h5M15 4h5v3M4 17v3h5m6 0h5v-3"/><circle cx="12" cy="12" r="3.5"/></svg><span>Snapshot</span></button>
+        <button class="btn btn-primary" id="uploadTop" type="button"><svg viewBox="0 0 24 24"><path d="M12 16V3m-5 5 5-5 5 5"/><path d="M4 15v5h16v-5"/></svg><span>Open model</span></button>
+      </div>
+    </header>
+    <main class="workspace">
+      <section class="viewer" aria-label="Interactive 3D viewport">
+        <div id="canvasHost"></div>
+        <button id="drawerViewToggle" type="button" aria-pressed="false">View drawer</button>
+        <div id="drawerQuickControls" aria-label="Individual drawer controls" hidden></div>
+        <nav id="modelNav" aria-label="Browse furniture models" hidden>
+          <button id="previousModel" type="button" aria-label="Previous OPUS model" title="Previous model">&#8249;</button>
+          <button id="nextModel" type="button" aria-label="Next OPUS model" title="Next model">&#8250;</button>
+        </nav>
+        <div class="vignette"></div>
+        <div class="model-heading"><span class="eyebrow">NOW VIEWING</span><h1 id="modelName">Test cube</h1><p id="modelSub">Drag to explore the model</p></div>
+        <div class="viewer-tip" id="tip">Drag to rotate · Pinch to zoom · Two fingers to pan</div>
+        <div class="tool-dock" role="toolbar" aria-label="3D model controls">
+          <button class="icon-btn" id="fitBtn" type="button" title="Fit model to screen" aria-label="Fit model to screen"><svg viewBox="0 0 24 24"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></svg></button>
+          <div class="dock-sep"></div>
+          <button class="icon-btn" id="zoomOutBtn" type="button" title="Zoom out" aria-label="Zoom out"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="7"/><path d="M7 10.5h7m1.5 5 5 5"/></svg></button>
+          <button class="icon-btn" id="zoomInBtn" type="button" title="Zoom in" aria-label="Zoom in"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="7"/><path d="M7 10.5h7m-3.5-3.5v7m4.5 1.5 5 5"/></svg></button>
+          <div class="dock-sep"></div>
+          <button class="icon-btn" id="spinBtn" type="button" title="Toggle automatic rotation" aria-label="Toggle automatic rotation" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 1-2.5-5.8L20 8m0-5v5h-5"/></svg></button>
+          <button class="icon-btn" id="animateBtn" type="button" title="Play or pause model animation" aria-label="Play or pause model animation" aria-pressed="false" hidden><svg viewBox="0 0 24 24"><path d="m8 5 11 7-11 7z"/></svg></button>
+          <button class="icon-btn mobile-settings" id="settingsBtn" type="button" title="View settings" aria-label="View settings" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="2" fill="#18222d"/><circle cx="15" cy="12" r="2" fill="#18222d"/><circle cx="8" cy="17" r="2" fill="#18222d"/></svg></button>
+        </div>
+        <div class="busy-cover" id="busy" role="status" aria-live="polite"><div class="busy-box"><div class="spinner"></div><strong>Loading your model</strong><span id="loadingText">Processing geometry and textures…</span><div class="progress"><i id="loadingBar"></i></div></div></div>
+        <div class="toast" id="toast" role="alert" aria-live="assertive"></div>
+      </section>
+      <button class="scrim" id="scrim" aria-label="Close settings" type="button"></button>
+      <div id="settingsPanel" hidden aria-hidden="true">
+        <div class="panel-heading"><div><span class="micro">WORKSPACE</span><h2>Model settings</h2></div><button class="close-panel" id="closePanel" type="button" title="Close settings" aria-label="Close settings"><svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5 5 19"/></svg></button></div>
+        <button class="dropzone" id="dropZone" type="button" title="Choose model files">
+          <span class="drop-icon"><svg viewBox="0 0 24 24"><path d="M12 16V4m-5 5 5-5 5 5"/><path d="M4 16v4h16v-4"/></svg></span>
+          <strong>Drop your 3D model here</strong><span>or tap to browse your files.<br>Select model + UDIM textures together (1001, 1002…).</span>
+          <span class="filetypes"><em>GLB</em><em>GLTF</em><em>OBJ</em><em>STL</em><em>FBX</em><em>PLY</em><em>UDIM</em></span>
+        </button>
+        <div class="section">
+          <span class="section-title">MODEL DETAILS</span>
+          <div class="meta-card">
+            <div><span class="k">Triangles</span><span class="v" id="triangleCount">—</span></div>
+            <div><span class="k">Meshes</span><span class="v" id="meshCount">—</span></div>
+            <div><span class="k">Dimensions*</span><span class="v" id="dimensions">—</span></div>
+            <div><span class="k">File size</span><span class="v" id="fileSize">Demo</span></div>
+          </div>
+        </div>
+        <div class="section">
+          <span class="section-title">SURFACE MODE</span>
+          <div class="segmented" role="group" aria-label="Surface mode">
+            <button data-surface="original" type="button" aria-pressed="true">Original</button>
+            <button data-surface="clay" type="button" aria-pressed="false">Clay</button>
+            <button data-surface="wire" type="button" aria-pressed="false">Wire</button>
+          </div>
+          <div class="switch-line"><span>Show grid</span><button class="switch" id="gridToggle" type="button" role="switch" aria-label="Show grid" aria-pressed="false"></button></div>
+          <div class="switch-line"><span>Ground shadow</span><button class="switch" id="shadowToggle" type="button" role="switch" aria-label="Ground shadow" aria-pressed="true"></button></div>
+          <div class="switch-line"><span>Auto rotate</span><button class="switch" id="rotateToggle" type="button" role="switch" aria-label="Auto rotate" aria-pressed="false"></button></div>
+        </div>
+        <div class="section">
+          <span class="section-title">DISPLAY</span>
+          <div class="segmented" role="group" aria-label="Background colour">
+            <button data-background="studio" type="button" aria-pressed="true">Studio</button>
+            <button data-background="white" type="button" aria-pressed="false">White</button>
+            <button data-background="dark" type="button" aria-pressed="false">Dark</button>
+          </div>
+          <div class="range-wrap"><label for="exposure">Lighting</label><output id="exposureValue">1.2×</output></div>
+          <input type="range" id="exposure" min="0.5" max="2.0" step="0.1" value="1.2">
+        </div>
+        <div class="section" id="interactionBuilder">
+          <span class="section-title">INTERACTIVE FURNITURE BUILDER</span>
+          <p style="font-size:12px;line-height:1.5;color:#aab7c7">Load the cabinet first. Add a separate drawer or door file with the same original coordinates. Enter movement and measurements below.</p>
+          <button class="btn btn-primary" id="addPart" type="button" style="width:100%;margin:8px 0">+ Add drawer / door model</button>
+          <label style="display:block;font-size:12px;margin:7px 0">Component name <input id="partName" value="Drawer_01" style="width:100%;padding:9px;border-radius:8px"></label>
+          <label style="display:block;font-size:12px;margin:7px 0">Interaction <select id="partType" style="width:100%;padding:9px;border-radius:8px"><option value="slide">Sliding drawer</option><option value="hinge">Hinged door</option></select></label>
+          <label style="display:block;font-size:12px;margin:7px 0">Axis <select id="partAxis" style="width:100%;padding:9px;border-radius:8px"><option value="z">Z</option><option value="x">X</option><option value="y">Y</option></select></label>
+          <label style="display:block;font-size:12px;margin:7px 0">Travel (model units) / door angle (degrees) <input id="partTravel" type="number" step="any" value="0.7" style="width:100%;padding:9px;border-radius:8px"></label>
+          <select id="partView" hidden><option value="top">Top / inside</option><option value="x">X side</option><option value="y">Y top</option><option value="z">Z front</option></select>
+          <label style="display:block;font-size:12px;margin:7px 0">Inside width × height × depth (mm) <div style="display:flex;gap:4px"><input id="partWidth" type="number" placeholder="Width" style="width:33%;min-width:0;padding:8px"><input id="partHeight" type="number" placeholder="Height" style="width:33%;min-width:0;padding:8px"><input id="partDepth" type="number" placeholder="Depth" style="width:33%;min-width:0;padding:8px"></div></label>
+          <button class="btn btn-primary" id="applyPart" type="button" style="width:100%;margin-top:8px">Apply interaction</button>
+          <button class="btn btn-primary" id="overheadDrawer" type="button" style="width:100%;margin-top:12px">Inspect drawer dimensions</button>
+          <div id="inspectDimensions" style="font-size:12px;line-height:1.6;margin-top:12px;color:#e4b779">Enter the drawer's internal width, height and depth above, then select Inspect drawer dimensions.</div>
+          <div hidden>
+            <select id="inspectTarget"><option value="unit">Whole unit</option><option value="drawer">Drawer</option></select>
+            <button id="inspectSwitch" type="button">Switch inspection view</button>
+            <input id="isolateInspect" type="checkbox">
+            <button id="focusPart" type="button">Focus</button>
+          </div>
+          <button class="btn" id="homePart" type="button" style="width:100%;margin-top:8px">Reset camera</button>
+        </div>
+        <div class="panel-footer">* Dimensions are shown in source-file units (e.g. millimetres for an STL exported in mm). UDIM: select model and all tile images together; tiles must use 1001-style names. Best with OBJ or GLTF meshes. Height/displacement tiles are not supported. Models stay on your device; files are not uploaded to a server. Requires internet to load the 3D engine on first use.</div>
+      </div>
+    </main>
+  </div>
+  <input type="file" id="partInput" accept=".glb,.gltf,.obj,.stl,.fbx,.ply,.mtl,.bin,.png,.jpg,.jpeg,.webp" multiple hidden>
+  <input type="file" id="fileInput" accept=".glb,.gltf,.obj,.stl,.fbx,.ply,.mtl,.bin,.png,.jpg,.jpeg,.webp,.bmp,.gif" multiple hidden>
+  <div id="drawerControls" hidden style="position:absolute;z-index:5;left:50%;bottom:95px;transform:translateX(-50%);width:min(310px,88vw);padding:12px 16px;border-radius:18px;background:rgba(24,34,45,.94);color:white;box-shadow:0 12px 35px #0003;display:flex;gap:10px;align-items:center;flex-direction:column">
+    <button id="drawerToggle" style="border:0;background:#e4b779;color:#17212d;border-radius:9px;padding:10px 18px;font-weight:700;width:100%">Open drawer</button>
+    <input id="drawerRange" aria-label="Drawer opening" type="range" min="0" max="100" value="0" style="width:100%" />
+    <small>Tap the drawer or use the slider</small>
+  </div>
+  <style>#drawerControls[hidden]{display:none!important}</style>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+    import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+    import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+    import { PLYLoader } from 'three/addons/loaders/PLYLoader.js';
+    import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
+    import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+    import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+
+    const $ = (id) => document.getElementById(id);
+    const canvasHost = $('canvasHost');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color('#dce1e5');
+    const camera = new THREE.PerspectiveCamera(35, 1, 0.01, 300);
+    const mobile = window.matchMedia('(pointer: coarse)').matches;
+    let renderer;
+    try {
+      renderer = new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance'});
+    } catch(err) {
+      $('toast').textContent = 'WebGL is unavailable in this browser. Try updating Safari or Chrome.';
+      $('toast').classList.add('visible');
+      throw err;
+    }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, mobile ? 1.55 : 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    canvasHost.appendChild(renderer.domElement);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = .075;
+    controls.screenSpacePanning = true;
+    controls.minDistance = .45;
+    controls.maxDistance = 90;
+    controls.autoRotateSpeed = 1.4;
+    controls.touches.ONE = THREE.TOUCH.ROTATE;
+    controls.touches.TWO = THREE.TOUCH.DOLLY_PAN;
+
+    scene.add(new THREE.HemisphereLight(0xf2f7ff,0x7d8790,2.1));
+    const key = new THREE.DirectionalLight(0xffffff,3);
+    key.position.set(-4,7,6);
+    key.castShadow = true;
+    key.shadow.mapSize.set(mobile ? 512 : 1024,mobile ? 512 : 1024);
+    key.shadow.camera.left=-8;key.shadow.camera.right=8;key.shadow.camera.top=8;key.shadow.camera.bottom=-8;
+    key.shadow.camera.near=.1;key.shadow.camera.far=40;
+    key.shadow.bias=-.0003;
+    scene.add(key);
+    const fill = new THREE.DirectionalLight(0xc8dafa,1.6);
+    fill.position.set(5,3,-5);
+    scene.add(fill);
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(200,200),new THREE.ShadowMaterial({opacity:.23}));
+    ground.rotation.x=-Math.PI/2;
+    ground.position.y=-.015;
+    ground.receiveShadow=true;
+    scene.add(ground);
+    const grid = new THREE.GridHelper(14,28,0x8fa2b1,0xbbc5cc);
+    grid.position.y=-.008;
+    grid.material.transparent=true;grid.material.opacity=.4;grid.visible=false;
+    scene.add(grid);
+    const modelMount = new THREE.Group();
+    scene.add(modelMount);
+    const clay = new THREE.MeshStandardMaterial({color:0xdcd1c4,metalness:0,roughness:.82});
+    const wire = new THREE.MeshBasicMaterial({color:0x25384c,wireframe:true,side:THREE.DoubleSide});
+    let rawModel = null, currentModel = null, originalMaterials = new Map(), modelAnimations = [], mixer = null, playAnimations = false;
+    let lastFit = null, currentMode='original', spinning=false, loading=false, activeURLs=[], fileTicket=0;
+    let lastFrameTime = 0, rafRequested = false, tipTimeout=null, toastTimeout=null;
+    const clock = new THREE.Clock();
+    let drawer = null, drawerClosed = 0, drawerTravel = 0, drawerTarget = 0, drawerAxis = 'z';
+    let partMode='slide', partAngle=0, focusTween=null;
+    // Every recognised drawer has independent movement state. `drawer` is the selected inspection drawer.
+    let drawerStates=[];
+    let selectedDrawerState=null;
+    function selectDrawer(state){
+      if(!state)return;
+      if(overheadInspection)resetOrbit();
+      selectedDrawerState=state;drawer=state.object;
+      drawerAxis=state.axis;drawerClosed=state.closed;drawerTravel=state.travel;drawerTarget=state.target;
+      $('drawerRange').value=Math.round(state.target*100);
+      $('drawerToggle').textContent=state.target>.5?'Close drawer':'Open drawer';
+    }
+    function drawerForHit(object){
+      for(let node=object;node;node=node.parent){
+        const state=drawerStates.find(entry=>entry.object===node);
+        if(state)return state;
+      }
+      return null;
+    }
+    const partConfig=()=>({name:$('partName').value.trim()||'Drawer_01',type:$('partType').value,axis:$('partAxis').value,travel:Number($('partTravel').value)||0,view:$('partView').value});
+    function focusDrawer(){
+      if(!drawer)return;
+      const b=new THREE.Box3().setFromObject(drawer),center=b.getCenter(new THREE.Vector3()),size=b.getSize(new THREE.Vector3());
+      const cfg=partConfig(),direction=cfg.view==='x'?new THREE.Vector3(1,.25,0):cfg.view==='z'?new THREE.Vector3(0,.25,1):new THREE.Vector3(0,1,.12);
+      const distance=Math.max(1.5,size.length()*2.1);
+      focusTween={fromPos:camera.position.clone(),fromTarget:controls.target.clone(),toPos:center.clone().addScaledVector(direction.normalize(),distance),toTarget:center.clone(),start:performance.now()};
+      const w=$('partWidth').value,h=$('partHeight').value,d=$('partDepth').value;
+      $('modelSub').textContent='Drag to explore the model';invalidate();
+    }
+    // Dedicated one-tap overhead drawer inspection with 3D dimension annotations.
+    const dimensionOverlay=new THREE.Group();scene.add(dimensionOverlay);
+    let overheadInspection=false;
+    function clearDimensions(){
+      while(dimensionOverlay.children.length){const o=dimensionOverlay.children[0];dimensionOverlay.remove(o);o.geometry?.dispose();o.material?.map?.dispose();o.material?.dispose();}
+    }
+    function dimensionLabel(text,position,labelWidth,labelHeight){
+      const canvas=document.createElement('canvas');canvas.width=1024;canvas.height=224;
+      const ctx=canvas.getContext('2d');ctx.fillStyle='rgba(15,23,42,.92)';ctx.fillRect(0,0,1024,224);
+      ctx.fillStyle='#ffffff';ctx.font='bold 105px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,512,112,970);
+      const texture=new THREE.CanvasTexture(canvas),mat=new THREE.SpriteMaterial({map:texture,depthTest:false});
+      const label=new THREE.Sprite(mat);label.position.copy(position);label.scale.set(labelWidth,labelHeight,1);label.renderOrder=999;dimensionOverlay.add(label);
+    }
+    function dimensionLine(a,b){
+      const geom=new THREE.BufferGeometry().setFromPoints([a,b]);
+      const line=new THREE.Line(geom,new THREE.LineBasicMaterial({color:0xffc857,depthTest:false}));line.renderOrder=998;dimensionOverlay.add(line);
+    }
+    function inspectDrawerOverhead(){
+      if(!drawer){toast('Load a drawer first.');return;}
+      overheadInspection=!overheadInspection;
+      clearDimensions();
+      if(!overheadInspection){
+        scene.add(dimensionOverlay);
+        if(currentModel)currentModel.traverse(o=>{o.visible=true;});
+        $('overheadDrawer').textContent='Inspect drawer dimensions';resetOrbit();return;
+      }
+      // Keep ancestor transforms visible; hide every non-drawer branch.
+      if(currentModel) currentModel.traverse(o=>{
+        if(o===currentModel || o===drawer || isDescendantOf(o,drawer) || isDescendantOf(drawer,o)) o.visible=true;
+        else o.visible=false;
+      });
+      drawer.updateWorldMatrix(true,true);
+      // Dimension guides are children of the drawer, so they follow its motion.
+      drawer.add(dimensionOverlay);
+      // The guides use drawer-local coordinates. Clear any transform inherited
+      // from earlier view switches before rebuilding them.
+      dimensionOverlay.position.set(0,0,0);
+      dimensionOverlay.quaternion.identity();
+      dimensionOverlay.scale.set(1,1,1);
+      // Always reactivate the annotation group when returning to drawer view.
+      dimensionOverlay.visible=true;
+      const box=new THREE.Box3();
+      drawer.traverse(o=>{
+        // Dimension graphics are not part of the drawer geometry.
+        if(o===dimensionOverlay || isDescendantOf(o,dimensionOverlay))return;
+        if(!o.isMesh || !o.geometry)return;
+        o.geometry.computeBoundingBox();
+        const local=o.geometry.boundingBox.clone();
+        const relative=new THREE.Matrix4().copy(drawer.matrixWorld).invert().multiply(o.matrixWorld);
+        local.applyMatrix4(relative);box.union(local);
+      });
+      const localCenter=box.getCenter(new THREE.Vector3()),size=box.getSize(new THREE.Vector3());
+      const inset=Math.max(.008,Math.min(size.x,size.z)*.055);
+      const x0=box.min.x+inset,x1=box.max.x-inset;
+      const z0=box.min.z+inset,z1=box.max.z-inset;
+      const bottom=box.min.y+Math.max(.008,size.y*.09);
+      const top=box.max.y-Math.max(.008,size.y*.07);
+      // One shared, fixed LOCAL-SPACE origin at the drawer's rear-left
+      // interior bottom corner. All three dimensions start here and move
+      // with the drawer because dimensionOverlay is parented to it.
+      const corner=new THREE.Vector3(x0,bottom,z0);
+      const cornerMarker=new THREE.Mesh(
+        new THREE.SphereGeometry(Math.max(.008,Math.min(size.x,size.y,size.z)*.012),12,8),
+        new THREE.MeshBasicMaterial({color:0xffc857,depthTest:false})
+      );
+      cornerMarker.position.copy(corner);
+      cornerMarker.renderOrder=999;
+      dimensionOverlay.add(cornerMarker);
+      dimensionLine(corner,new THREE.Vector3(x1,bottom,z0));
+      dimensionLine(corner,new THREE.Vector3(x0,bottom,z1));
+      dimensionLine(corner,new THREE.Vector3(x0,top,z0));
+      const w=$('partWidth').value||'—',h=$('partHeight').value||'—',d=$('partDepth').value||'—';
+      const labelLift=Math.max(.025,size.y*.09);
+      // All three labels share one size, based on the actual drawer interior.
+      // This works for OBJ files exported in mm as well as small model units.
+      const labelWidth=Math.min(x1-x0,z1-z0)*.62;
+      const labelHeight=labelWidth*(224/1024);
+      dimensionLabel(`X / WIDTH ${w} mm`,new THREE.Vector3((x0+x1)/2,bottom+labelLift,z0),labelWidth,labelHeight);
+      dimensionLabel(`Z / DEPTH ${d} mm`,new THREE.Vector3(x0,bottom+labelLift,(z0+z1)/2),labelWidth,labelHeight);
+      dimensionLabel(`Y / HEIGHT ${h} mm`,new THREE.Vector3(x0,(bottom+top)/2,z0),labelWidth,labelHeight);
+      $('inspectDimensions').textContent=`Internal dimensions: ${w} W × ${h} H × ${d} D mm`;
+      $('overheadDrawer').textContent='Show complete furniture unit';
+      setPanel(false);
+      $('inspectTarget').value='drawer';$('isolateInspect').checked=true;
+      // The furniture is scaled by setModel(). Measure in WORLD units, not
+      // source OBJ units, otherwise the inspection camera zooms far away.
+      const worldBounds=new THREE.Box3().setFromObject(drawer);
+      const worldSize=worldBounds.getSize(new THREE.Vector3());
+      const center=worldBounds.getCenter(new THREE.Vector3());
+      const verticalHalfFov=THREE.MathUtils.degToRad(camera.fov)*0.5;
+      const horizontalHalfFov=Math.atan(Math.tan(verticalHalfFov)*Math.max(camera.aspect,0.1));
+      // Frame the drawer in both viewport dimensions with modest breathing room.
+      const distance=Math.max(
+        worldSize.z/(2*Math.tan(verticalHalfFov)),
+        worldSize.x/(2*Math.tan(horizontalHalfFov))
+      )*1.22 + worldSize.y*0.5;
+      const safeDistance=Math.max(distance,controls.minDistance*1.05,camera.near*3);
+      focusTween={fromPos:camera.position.clone(),fromTarget:controls.target.clone(),
+        toPos:center.clone().add(new THREE.Vector3(0,safeDistance,0.001)),toTarget:center,start:performance.now()};
+      invalidate();
+    }
+    $('overheadDrawer').addEventListener('click',inspectDrawerOverhead);
+    // The visible button reuses the original drawer inspection logic unchanged.
+    const drawerViewToggle=$('drawerViewToggle');
+    drawerViewToggle.addEventListener('click',()=> $('overheadDrawer').click());
+    const syncDrawerViewButton=()=>{
+      drawerViewToggle.textContent=overheadInspection?'View main model':'View drawer';
+      drawerViewToggle.setAttribute('aria-pressed',String(overheadInspection));
+    };
+    new MutationObserver(syncDrawerViewButton).observe($('overheadDrawer'),{childList:true,characterData:true,subtree:true});
+    syncDrawerViewButton();
+    ['partWidth','partHeight','partDepth'].forEach(id=>$(id).addEventListener('input',()=>{if(overheadInspection){overheadInspection=false;inspectDrawerOverhead();}}));
+    // Switch orbit pivot between the full furniture unit and the movable drawer.
+    // Isolation hides the other meshes but never changes their saved transforms.
+    let inspectMode='unit';
+    function inspectComponent(){
+      const requested=$('inspectTarget').value;
+      if(requested==='drawer' && !drawer){toast('No drawer found. Upload a drawer or use the demo cabinet.');return;}
+      inspectMode=requested;
+      const targetObject=requested==='drawer'?drawer:currentModel;
+      if(!targetObject)return;
+      const isolate=$('isolateInspect').checked && requested==='drawer';
+      if(currentModel){
+        currentModel.traverse(o=>{
+          if(!o.isMesh)return;
+          o.visible=!isolate || (drawer && (o===drawer || isDescendantOf(o,drawer)));
+        });
+      }
+      const bounds=new THREE.Box3().setFromObject(targetObject);
+      if(bounds.isEmpty())return;
+      const center=bounds.getCenter(new THREE.Vector3());
+      const size=bounds.getSize(new THREE.Vector3());
+      const viewDir=camera.position.clone().sub(controls.target).normalize();
+      const distance=Math.max(size.length()*1.7,.8);
+      focusTween={fromPos:camera.position.clone(),fromTarget:controls.target.clone(),
+        toPos:center.clone().addScaledVector(viewDir,distance),
+        toTarget:center,start:performance.now()};
+      if(requested==='drawer'){
+        const w=$('partWidth').value,h=$('partHeight').value,d=$('partDepth').value;
+        $('inspectDimensions').textContent=`Drawer inside: W ${w||'—'} × H ${h||'—'} × D ${d||'—'} mm`;
+      }else{
+        $('inspectDimensions').textContent=`Unit bounds (model units): X ${size.x.toFixed(2)} × Y ${size.y.toFixed(2)} × Z ${size.z.toFixed(2)}`;
+      }
+      invalidate();
+    }
+    function isDescendantOf(obj,ancestor){
+      for(let p=obj.parent;p;p=p.parent)if(p===ancestor)return true;
+      return false;
+    }
+    $('inspectSwitch').addEventListener('click',inspectComponent);
+    $('inspectTarget').addEventListener('change',inspectComponent);
+    $('isolateInspect').addEventListener('change',inspectComponent);
+    $('applyPart').addEventListener('click',()=>{
+      if(!drawer){toast('Load a drawer first.');return;}
+      const cfg=partConfig();drawer.name=cfg.name;partMode=cfg.type;drawerAxis=cfg.axis;drawerTravel=cfg.travel;
+      drawerClosed=drawer.position[drawerAxis];partAngle=drawer.rotation[drawerAxis];if(selectedDrawerState){Object.assign(selectedDrawerState,{axis:drawerAxis,closed:drawerClosed,travel:drawerTravel});}setDrawerAmount(0);toast('Interaction configured.');
+    });
+    $('focusPart').addEventListener('click',()=>{setDrawerAmount(1);setTimeout(focusDrawer,400)});
+    $('homePart').addEventListener('click',resetOrbit);
+    const raycaster = new THREE.Raycaster(), pointer = new THREE.Vector2();
+    function detectDrawer(model) {
+      drawerStates=[];selectedDrawerState=null;drawer=null;
+      // Prefer the separately imported OBJ roots, not internal OBJ mesh names.
+      const candidates=[];
+      const roots=model.children.filter(o=>/^DRAWER(?:[_\\s-]|\\d)/i.test(o.name) && !new THREE.Box3().setFromObject(o).isEmpty());
+      if(roots.length)candidates.push(...roots);
+      else model.traverse(o=>{
+        if(!/^DRAWER(?:[_\\s-]|\\d)/i.test(o.name) || /handle|knob/i.test(o.name))return;
+        if(candidates.some(parent=>o===parent || isDescendantOf(o,parent)))return;
+        if(!new THREE.Box3().setFromObject(o).isEmpty())candidates.push(o);
+      });
+      for(const object of candidates){
+        const size=new THREE.Box3().setFromObject(object).getSize(new THREE.Vector3());
+        drawerStates.push({object,axis:'z',closed:object.position.z,
+          travel:Math.max(.05,size.z*.8),target:0});
+      }
+      if(drawerStates.length)selectDrawer(drawerStates[0]);
+      const quick=$('drawerQuickControls');
+      quick.replaceChildren();
+      drawerStates.forEach((state,i)=>{
+        const button=document.createElement('button');
+        button.type='button';
+        button.textContent='Drawer '+String(i+1).padStart(2,'0');
+        button.setAttribute('aria-pressed','false');
+        button.addEventListener('click',()=>{
+          selectDrawer(state);
+          setDrawerAmount(state.target>.5?0:1,state);
+        });
+        state.button=button;
+        quick.append(button);
+      });
+      $('drawerControls').hidden=true;
+    }
+    function setDrawerAmount(t,state=selectedDrawerState){
+      if(!state)return;
+      state.target=THREE.MathUtils.clamp(t,0,1);
+      if(state.button)state.button.setAttribute('aria-pressed',String(state.target>.5));
+      if(state===selectedDrawerState){
+        drawerTarget=state.target;
+        $('drawerRange').value=Math.round(state.target*100);
+        $('drawerToggle').textContent=state.target>.5?'Close drawer':'Open drawer';
+      }
+      invalidate();
+    }
+    $('drawerToggle').addEventListener('click',()=>setDrawerAmount(selectedDrawerState?.target>.5?0:1));
+    $('drawerRange').addEventListener('input',e=>setDrawerAmount(Number(e.target.value)/100));
+    let downPoint=null;
+    renderer.domElement.addEventListener('pointerdown',e=>{downPoint={x:e.clientX,y:e.clientY};});
+    renderer.domElement.addEventListener('pointerup',e=>{
+      if(!drawerStates.length||!downPoint||Math.hypot(e.clientX-downPoint.x,e.clientY-downPoint.y)>12)return;
+      const rect=renderer.domElement.getBoundingClientRect();
+      pointer.set((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);
+      raycaster.setFromCamera(pointer,camera);
+      // Click the drawer geometry directly, including drawers 02 and 03.
+      const hits=raycaster.intersectObjects(drawerStates.map(s=>s.object),true);
+      if(hits.length){
+        const state=drawerForHit(hits[0].object);
+        if(state){selectDrawer(state);setDrawerAmount(state.target>.5?0:1,state);}
+      }
+    });
+
+    function renderOnce() {
+      rafRequested=false;
+      if(document.hidden)return;
+      let dt=Math.min(clock.getDelta(),.05);
+      if(playAnimations && mixer)mixer.update(dt);
+      if(focusTween){
+        const t=Math.min(1,(performance.now()-focusTween.start)/750),e=t*t*(3-2*t);
+        camera.position.lerpVectors(focusTween.fromPos,focusTween.toPos,e);
+        controls.target.lerpVectors(focusTween.fromTarget,focusTween.toTarget,e);
+        if(t===1)focusTween=null;invalidate();
+      }
+      for(const state of drawerStates){
+        const wanted=state.closed+state.travel*state.target;
+        const current=state.object.position[state.axis];
+        if(Math.abs(current-wanted)>0.0001){
+          state.object.position[state.axis]=THREE.MathUtils.damp(current,wanted,12,dt);
+          invalidate();
+        }
+      }
+      controls.update();
+      renderer.render(scene,camera);
+      if(spinning || playAnimations)invalidate();
+    }
+    function invalidate() {if(!rafRequested){rafRequested=true;requestAnimationFrame(renderOnce)}}
+    controls.addEventListener('change',invalidate);
+    controls.addEventListener('start',() => { $('tip').classList.add('hidden'); });
+    document.addEventListener('visibilitychange',()=> {clock.getDelta();invalidate()});
+    const resizeObserver=new ResizeObserver(()=>{
+      const w=Math.max(1,canvasHost.clientWidth),h=Math.max(1,canvasHost.clientHeight);
+      camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h,false);
+      invalidate();
+    });
+    resizeObserver.observe(canvasHost);
+
+    function toast(message) {
+      clearTimeout(toastTimeout);
+      const node=$('toast');node.textContent=message;node.classList.add('visible');
+      toastTimeout=setTimeout(()=>node.classList.remove('visible'),4600);
+    }
+    function busy(state, message='Processing geometry and textures…',pct=12) {
+      loading=state;
+      $('busy').classList.toggle('active',state);
+      $('loadingText').textContent=message;
+      $('loadingBar').style.width=pct+'%';
+    }
+    function formatCount(num) {return Math.round(num).toLocaleString('en-GB')}
+    function fileSize(n) {return n<1024*1024 ? (n/1024).toFixed(1)+' KB' : (n/(1024*1024)).toFixed(1)+' MB'}
+    function setStats(model, sizeLabel) {
+      let meshes=0,triangles=0;
+      model.traverse(o=>{
+        if(o.isMesh || o.isSkinnedMesh){
+          meshes++;
+          const g=o.geometry;if(g){const count=g.index?g.index.count:g.getAttribute('position')?.count||0;triangles+=count/3;}
+        }
+      });
+      const b=new THREE.Box3().setFromObject(model);
+      const size=b.getSize(new THREE.Vector3());
+      $('meshCount').textContent=formatCount(meshes);
+      $('triangleCount').textContent=formatCount(triangles);
+      $('dimensions').textContent=[size.x,size.y,size.z].map(v=>v>=100?Math.round(v):Number(v.toFixed(2))).join(' × ');
+      $('fileSize').textContent=sizeLabel;
+      return {box:b,size};
+    }
+    function resetOrbit() {
+      overheadInspection=false;clearDimensions();scene.add(dimensionOverlay);$('overheadDrawer').textContent='Inspect drawer dimensions';
+      $('inspectTarget').value='unit';$('isolateInspect').checked=false;
+      if(currentModel)currentModel.traverse(o=>{o.visible=true;});
+      if(!lastFit)return;
+      controls.target.copy(lastFit.target);
+      camera.position.copy(lastFit.position);
+      controls.update();invalidate();
+    }
+    function setModel(model,name,sizeLabel='Demo',animations=[]) {
+      overheadInspection=false;clearDimensions();scene.add(dimensionOverlay);$('overheadDrawer').textContent='Inspect drawer dimensions';
+      if(rawModel) {
+        modelMount.remove(currentModel);
+        const materialsToDispose=new Set();
+        rawModel.traverse(o=>{
+          if(o.geometry)o.geometry.dispose();
+          const original=originalMaterials.get(o)||o.material;
+          const mats=Array.isArray(original)?original:(original?[original]:[]);
+          mats.forEach(m=>{if(m!==clay&&m!==wire)materialsToDispose.add(m)});
+        });
+        const texturesToDispose=new Set();
+        materialsToDispose.forEach(m=>{
+          for(const k in m)if(m[k]?.isTexture)texturesToDispose.add(m[k]);
+          m.dispose();
+        });
+        texturesToDispose.forEach(t=>t.dispose());
+      }
+      originalMaterials.clear();
+      rawModel=model;modelAnimations=animations;
+      $('inspectTarget').value='unit';$('isolateInspect').checked=false;
+      detectDrawer(model);
+      mixer=animations.length?new THREE.AnimationMixer(rawModel):null;
+      if(mixer)animations.forEach(c=>mixer.clipAction(c).play());
+      playAnimations=animations.length>0;
+      $('animateBtn').hidden=!animations.length;
+      $('animateBtn').setAttribute('aria-pressed',String(playAnimations));
+      const {box,size}=setStats(model,sizeLabel);
+      const max=Math.max(size.x,size.y,size.z);
+      if(!isFinite(max) || max < 1e-9){toast('This model has no visible geometry.');return;}
+      const normalizedScale=3.1/max;
+      const cent=box.getCenter(new THREE.Vector3());
+      const floorCenter=new THREE.Vector3(cent.x,box.min.y,cent.z);
+      rawModel.position.sub(floorCenter);
+      const wrapper=new THREE.Group();
+      wrapper.scale.setScalar(normalizedScale);
+      wrapper.add(rawModel);
+      currentModel=wrapper;
+      modelMount.add(wrapper);
+      model.traverse(o=>{
+        if(o.isMesh || o.isSkinnedMesh) {
+          originalMaterials.set(o,o.material);
+          o.castShadow=true;
+          o.receiveShadow=true;
+        }
+      });
+      const actualSize=size.clone().multiplyScalar(normalizedScale);
+      const target=new THREE.Vector3(0,actualSize.y*.48,0);
+      const verticalFOV=THREE.MathUtils.degToRad(camera.fov);
+      const horizontalFOV=2*Math.atan(Math.tan(verticalFOV/2)*camera.aspect);
+      const requiredDist=Math.max(actualSize.y/(2*Math.tan(verticalFOV/2)),actualSize.x/(2*Math.tan(horizontalFOV/2)),actualSize.z/(2*Math.tan(horizontalFOV/2)));
+      const dist=Math.max(4.4,requiredDist*1.75);
+      const pos=target.clone().add(new THREE.Vector3(1,.62,1.5).normalize().multiplyScalar(dist));
+      camera.near=Math.max(.001,dist/2000);camera.far=Math.max(150,dist*35);camera.updateProjectionMatrix();
+      controls.minDistance=Math.max(.2,dist*.07);controls.maxDistance=dist*18;
+      lastFit={position:pos,target};
+      controls.target.copy(target);camera.position.copy(pos);controls.update();
+      $('modelName').textContent=name;
+      $('modelSub').textContent='Drag to explore the model';
+      applySurface(currentMode);
+      invalidate();
+    }
+    function applySurface(mode) {
+      currentMode=mode;
+      originalMaterials.forEach((orig,mesh)=>{mesh.material=mode==='original'?orig:(mode==='clay'?clay:wire)});
+      document.querySelectorAll('[data-surface]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.surface===mode)));
+      invalidate();
+    }
+    document.querySelectorAll('[data-surface]').forEach(b=>b.addEventListener('click',()=>applySurface(b.dataset.surface)));
+    function setPressed(id,value) {$(id).setAttribute('aria-pressed',String(value))}
+    function setSpinning(state) {
+      spinning=state;controls.autoRotate=state;
+      setPressed('spinBtn',state);setPressed('rotateToggle',state);invalidate();
+    }
+    $('spinBtn').addEventListener('click',()=>setSpinning(!spinning));
+    $('rotateToggle').addEventListener('click',()=>setSpinning(!spinning));
+    $('gridToggle').addEventListener('click',()=>{grid.visible=!grid.visible;setPressed('gridToggle',grid.visible);invalidate()});
+    $('shadowToggle').addEventListener('click',()=>{
+      const on=$('shadowToggle').getAttribute('aria-pressed')!=='true';
+      ground.visible=on;key.castShadow=on;setPressed('shadowToggle',on);invalidate();
+    });
+    const colors={studio:'#dce1e5',white:'#ffffff',dark:'#222a35'};
+    document.querySelectorAll('[data-background]').forEach(b=>b.addEventListener('click',()=>{
+      scene.background.set(colors[b.dataset.background]);
+      document.querySelectorAll('[data-background]').forEach(el=>el.setAttribute('aria-pressed',String(el===b)));
+      invalidate();
+    }));
+    $('exposure').addEventListener('input',(e)=>{renderer.toneMappingExposure=Number(e.target.value);$('exposureValue').textContent=Number(e.target.value).toFixed(1)+'×';invalidate()});
+    $('fitBtn').addEventListener('click',resetOrbit);
+    function zoom(factor) {const dir=camera.position.clone().sub(controls.target);dir.multiplyScalar(factor);dir.clampLength(controls.minDistance,controls.maxDistance);camera.position.copy(controls.target).add(dir);controls.update();invalidate()}
+    $('zoomOutBtn').addEventListener('click',()=>zoom(1.22));
+    $('zoomInBtn').addEventListener('click',()=>zoom(.82));
+    $('animateBtn').addEventListener('click',()=>{playAnimations=!playAnimations;setPressed('animateBtn',playAnimations);invalidate()});
+    // Double tap fits model (while avoiding normal single-tap navigation).
+    let lastTap=0;
+    renderer.domElement.addEventListener('touchend',e=>{
+      if(e.changedTouches.length!==1 || e.touches.length)return;
+      const now=Date.now();if(now-lastTap<310)resetOrbit();lastTap=now;
+    },{passive:true});
+
+    function setPanel(open) {
+      $('settingsPanel').classList.toggle('open',open);$('scrim').classList.toggle('open',open);
+      $('settingsBtn').setAttribute('aria-expanded',String(open));
+    }
+    $('settingsBtn').addEventListener('click',()=>setPanel(true));
+    $('closePanel').addEventListener('click',()=>setPanel(false));
+    $('scrim').addEventListener('click',()=>setPanel(false));
+    document.addEventListener('keydown',e=>{
+      if(e.key==='Escape')setPanel(false);
+      if(e.key.toLowerCase()==='f' && !['INPUT','TEXTAREA'].includes(document.activeElement.tagName))resetOrbit();
+    });
+
+    function makeDemo() {
+      const group=new THREE.Group();
+      const wood=new THREE.MeshStandardMaterial({color:0xb38b66,roughness:.72});
+      const inner=new THREE.MeshStandardMaterial({color:0x8e684d,roughness:.8});
+      const metal=new THREE.MeshStandardMaterial({color:0xc5ccd2,metalness:.75,roughness:.24});
+      function part(parent,name,w,h,d,x,y,z,mat){
+        const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
+        mesh.name=name;mesh.position.set(x,y,z);parent.add(mesh);return mesh;
+      }
+      part(group,'Cabinet_Left',.14,1.7,1.45,-1, .85,0,wood);
+      part(group,'Cabinet_Right',.14,1.7,1.45,1,.85,0,wood);
+      part(group,'Cabinet_Top',2.14,.14,1.52,0,1.74,0,wood);
+      part(group,'Cabinet_Bottom',2.14,.14,1.45,0,.07,0,wood);
+      part(group,'Cabinet_Back',1.9,1.55,.12,0,.86,-.69,inner);
+      const d=new THREE.Group();d.name='Drawer';d.position.set(0,0,0);group.add(d);
+      part(d,'Drawer_Front',1.94,.63,.13,0,1.26,.77,wood);
+      part(d,'Drawer_Back',1.77,.48,.09,0,1.19,-.48,inner);
+      part(d,'Drawer_Left',.09,.48,1.2,-.84,1.19,.12,inner);
+      part(d,'Drawer_Right',.09,.48,1.2,.84,1.19,.12,inner);
+      part(d,'Drawer_Bottom',1.77,.08,1.2,0,.97,.12,inner);
+      part(d,'Drawer_Handle',.45,.09,.12,0,1.27,.88,metal);
+      part(group,'Lower_Front',1.94,.82,.12,0,.47,.75,wood);
+      return group;
+    }
+
+    const draco=new DRACOLoader();
+    draco.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/libs/draco/gltf/');
+    draco.setWorkerLimit(mobile?2:4);
+    function suffix(name){return name.toLowerCase().split('.').pop()}
+    function pickMain(files) {
+      const types=['glb','gltf','fbx','obj','stl','ply'];
+      return files.find(f=>types.includes(suffix(f.name)));
+    }
+    // UDIM tiles: UV U=0..1 ->1001, U=1..2 ->1002, V=1..2 ->1011.
+    // Uses per-triangle material groups to keep standard PBR lighting and mobile compatibility.
+    function udimKind(name) {
+      const n=name.toLowerCase();
+      if(/normal|_nrm|_nor|normals/.test(n))return 'normalMap';
+      if(/rough|_rgh/.test(n))return 'roughnessMap';
+      if(/metal|_mtl/.test(n))return 'metalnessMap';
+      if(/opacity|alpha/.test(n))return 'alphaMap';
+      if(/ao|ambientocclusion/.test(n))return 'aoMap';
+      if(/emissive|emission/.test(n))return 'emissiveMap';
+      if(/height|displace|bump/.test(n))return null; // Requires separate tessellation; not silently treated as colour.
+      return 'map';
+    }
+    async function applyUDIM(model,files) {
+      const tileFiles=files.filter(f=>/(?:^|[._-])(1\d{3})(?=[._-])/.test(f.name)&&/\.(png|jpe?g|webp)$/i.test(f.name));
+      if(!tileFiles.length)return 0;
+      const tileMap=new Map();
+      const loader=new THREE.TextureLoader();
+      await Promise.all(tileFiles.map(async f=>{
+        const match=f.name.match(/(?:^|[._-])(1\d{3})(?=[._-])/);
+        if(!match)return;
+        const tile=Number(match[1]);if(tile<1001||tile>1999)return;
+        const kind=udimKind(f.name);if(!kind)return;
+        const url=URL.createObjectURL(f);
+        try {
+          const tex=await loader.loadAsync(url);
+          tex.flipY=true; // OBJLoader UVs use the standard TextureLoader orientation
+          tex.colorSpace=(kind==='map'||kind==='emissiveMap')?THREE.SRGBColorSpace:THREE.NoColorSpace;
+          tex.wrapS=THREE.ClampToEdgeWrapping;tex.wrapT=THREE.ClampToEdgeWrapping;
+          if(!tileMap.has(tile))tileMap.set(tile,{});
+          if(tileMap.get(tile)[kind]){tex.dispose();return;}
+          tileMap.get(tile)[kind]=tex;
+        } finally {URL.revokeObjectURL(url)}
+      }));
+      if(!tileMap.size)return 0;
+      let applied=0;
+      model.traverse(obj=>{
+        if(!obj.isMesh||obj.isSkinnedMesh||obj.morphTargetInfluences?.length)return;
+        const source=obj.geometry;
+        if(!source?.getAttribute('uv')||!source.getAttribute('position'))return;
+        const geom=source.index?source.toNonIndexed():source.clone();
+        const uv=geom.getAttribute('uv');
+        const triangles=uv.count/3;
+        const originalMats=Array.isArray(obj.material)?obj.material:[obj.material];
+        const originalGroups=source.groups||[];
+        const mats=[];const matKeys=new Map();const groups=[];
+        let lastIndex=-1,groupStart=0;
+        for(let t=0;t<triangles;t++){
+          const a=t*3;
+          const u=(uv.getX(a)+uv.getX(a+1)+uv.getX(a+2))/3;
+          const v=(uv.getY(a)+uv.getY(a+1)+uv.getY(a+2))/3;
+          const col=Math.floor(u+1e-6),row=Math.floor(v+1e-6);
+          const tile=1001+col+row*10;
+          const grp=originalGroups.find(g=>a>=g.start&&a<g.start+g.count);
+          const baseIndex=grp?.materialIndex||0;
+          const key=baseIndex+':'+tile;
+          if(!matKeys.has(key)){
+            const original=originalMats[baseIndex]||originalMats[0];
+            const material=(original?.isMeshStandardMaterial||original?.isMeshPhysicalMaterial)?original.clone():new THREE.MeshStandardMaterial({color:0xffffff,side:THREE.DoubleSide});
+            const maps=tileMap.get(tile);
+            if(maps){
+              for(const [kind,tex] of Object.entries(maps))material[kind]=tex;
+              if(maps.map)material.color.set(0xffffff);
+              material.needsUpdate=true;applied++;
+            }
+            matKeys.set(key,mats.length);mats.push(material);
+          }
+          const idx=matKeys.get(key);
+          if(lastIndex!==idx){if(t>0)groups.push({start:groupStart,count:a-groupStart,materialIndex:lastIndex});groupStart=a;lastIndex=idx;}
+          for(let k=0;k<3;k++)uv.setXY(a+k,uv.getX(a+k)-col,uv.getY(a+k)-row);
+        }
+        if(triangles)groups.push({start:groupStart,count:triangles*3-groupStart,materialIndex:lastIndex});
+        geom.clearGroups();groups.forEach(g=>geom.addGroup(g.start,g.count,g.materialIndex));
+        obj.geometry=geom;obj.material=mats;
+        if(source!==geom)source.dispose();
+      });
+      return applied;
+    }
+    async function openFiles(fileList,appendPart=false) {
+      const files=Array.from(fileList||[]);
+      const main=pickMain(files);
+      if(!main){toast('Select a GLB, GLTF, OBJ, STL, FBX or PLY model.');return;}
+      if(loading){toast('A model is already loading.');return;}
+      const ticket=++fileTicket;
+      if(mobile && files.reduce((s,f)=>s+f.size,0)>80*1024*1024)toast('Large files may use significant memory on a phone.');
+      setPanel(false);
+      busy(true,'Reading '+main.name+'…',8);
+      const objectURLs=[];
+      const resources=new Map();
+      for(const f of files) {
+        const uri=URL.createObjectURL(f);objectURLs.push(uri);
+        const normalized=f.webkitRelativePath||f.name;
+        resources.set(normalized.toLowerCase().replaceAll('\\','/'),uri);
+        resources.set(f.name.toLowerCase(),uri);
+      }
+      const mainURL=resources.get(main.name.toLowerCase());
+      const manager=new THREE.LoadingManager();
+      manager.setURLModifier(url=>{
+        if(url.startsWith('blob:')||url.startsWith('data:'))return url;
+        let normalized;
+        try{normalized=decodeURIComponent(url).replaceAll('\\','/').replace(/^\.\//,'').toLowerCase()}catch{normalized=url.toLowerCase()}
+        if(resources.has(normalized))return resources.get(normalized);
+        const last=normalized.split('/').pop();
+        return resources.get(last)||url;
+      });
+      const kind=suffix(main.name);
+      let model=null,animations=[];
+      const progress=(ev)=>{
+        if(ev.lengthComputable && ev.total>0)busy(true,'Reading '+main.name+'…',Math.min(95,Math.max(12,ev.loaded/ev.total*90)));
+      };
+      try {
+        if(kind==='glb'||kind==='gltf'){
+          const loader=new GLTFLoader(manager);
+          loader.setDRACOLoader(draco);
+          loader.setMeshoptDecoder(MeshoptDecoder);
+          const gltf=await new Promise((res,rej)=>loader.load(mainURL,res,progress,rej));
+          model=gltf.scene;animations=gltf.animations||[];
+        } else if(kind==='obj') {
+          const loader=new OBJLoader(manager);
+          const mtlFile=files.find(f=>suffix(f.name)==='mtl');
+          if(mtlFile) {
+            const materials=await new Promise((res,rej)=>new MTLLoader(manager).load(resources.get(mtlFile.name.toLowerCase()),res,progress,rej));
+            materials.preload();loader.setMaterials(materials);
+          }
+          model=await new Promise((res,rej)=>loader.load(mainURL,res,progress,rej));
+        } else if(kind==='fbx'){
+          model=await new Promise((res,rej)=>new FBXLoader(manager).load(mainURL,res,progress,rej));
+          animations=model.animations||[];
+        } else if(kind==='stl'||kind==='ply') {
+          const loader=kind==='stl'?new STLLoader(manager):new PLYLoader(manager);
+          const geometry=await new Promise((res,rej)=>loader.load(mainURL,res,progress,rej));
+          if(!geometry.getAttribute('normal'))geometry.computeVertexNormals();
+          let material;
+          if(geometry.getAttribute('color'))material=new THREE.MeshStandardMaterial({vertexColors:true,side:THREE.DoubleSide,roughness:.72});
+          else material=new THREE.MeshStandardMaterial({color:0xcac6c0,side:THREE.DoubleSide,roughness:.74});
+          model=new THREE.Mesh(geometry,material);
+        }
+        if(ticket!==fileTicket)return;
+        const udimCount=await applyUDIM(model,files);
+        if(!model)throw new Error('No mesh was found.');
+        const prior=activeURLs;
+        if(appendPart && rawModel){
+          const cfg=partConfig();model.name=cfg.name;
+          rawModel.add(model);
+          model.traverse(o=>{if(o.isMesh){originalMaterials.set(o,o.material);o.castShadow=true;o.receiveShadow=true;}});
+          drawer=model;drawerAxis=cfg.axis;partMode=cfg.type;drawerClosed=drawer.position[drawerAxis];partAngle=drawer.rotation[drawerAxis];drawerTravel=cfg.travel;
+          detectDrawer(rawModel);$('drawerControls').hidden=true;setDrawerAmount(0);
+          setStats(rawModel,'Multiple components');applySurface(currentMode);
+        }else setModel(model,main.name,files.length>1?fileSize(availableFiles.reduce((n,f)=>n+f.size,0))+' total':fileSize(main.size),animations);
+        activeURLs=objectURLs;
+        prior.forEach(url=>URL.revokeObjectURL(url));
+        busy(false);
+        toast(udimCount?`Model loaded with ${udimCount} UDIM material assignments.`:'Model loaded locally.');
+      } catch(err) {
+        objectURLs.forEach(url=>URL.revokeObjectURL(url));
+        console.error('Model load failed:',err);
+        busy(false);
+        toast(`Could not open ${main.name}. ${kind==='gltf'?'For GLTF, select its .bin and texture files too.':'Check the file and try exporting as GLB.'}`);
+      }
+    }
+    const fileInput=$('fileInput');
+    $('addPart').addEventListener('click',()=>$('partInput').click());
+    $('partInput').addEventListener('change',e=>{openFiles(e.target.files,true);e.target.value='';});
+    $('uploadTop').addEventListener('click',()=>fileInput.click());
+    $('dropZone').addEventListener('click',()=>fileInput.click());
+    fileInput.addEventListener('change',e=>{openFiles(e.target.files);e.target.value='';});
+    for(const target of [canvasHost,$('dropZone')]) {
+      target.addEventListener('dragover',e=>{e.preventDefault();$('dropZone').classList.add('dragging')});
+      target.addEventListener('dragleave',()=>{$('dropZone').classList.remove('dragging')});
+      target.addEventListener('drop',e=>{e.preventDefault();$('dropZone').classList.remove('dragging');openFiles(e.dataTransfer.files)});
+    }
+    $('screenshotBtn').addEventListener('click',async()=>{
+      try{
+        renderer.render(scene,camera);
+        const blob=await new Promise(resolve=>renderer.domElement.toBlob(resolve,'image/png'));
+        if(!blob)throw new Error('Could not generate image.');
+        const filename='forma-model-snapshot.png';
+        if(navigator.canShare && navigator.share && navigator.canShare({files:[new File([blob],filename,{type:'image/png'})]})){
+          try{await navigator.share({files:[new File([blob],filename,{type:'image/png'})],title:'3D model snapshot'});return}
+          catch(err){if(err.name==='AbortError')return}
+        }
+        const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);
+      }catch(err){console.error(err);toast('Snapshot unavailable on this device.');}
+    });
+
+    // Edit this catalogue to add furniture ranges and product models.
+    // For a published OBJ product, put its model files in the specified folder.
+    const furnitureCatalogue=[
+      {name:'OPUS',products:[
+        {name:'OPUS 3-Drawer Unit',type:'published',folder:'',models:['BASE_OPU3BS.obj','DRAWER_01_OPU3BS.obj','DRAWER_02_OPU3BS.obj','DRAWER_03_OPU3BS.obj'],textures:'legacy'}
+      ]}
+    ];
+    const catalogueScreen=$('catalogueScreen'),catalogueGrid=$('catalogueGrid');
+    let activeRange=null,activeProductIndex=0;
+    function updateModelNavigation(){
+      const count=activeRange?.products.length||0;
+      $('modelNav').hidden=!activeRange || catalogueScreen.hidden===false;
+      $('previousModel').disabled=count<2 || loading;
+      $('nextModel').disabled=count<2 || loading;
+    }
+    async function navigateModel(delta){
+      if(!activeRange || loading || activeRange.products.length<2)return;
+      const index=(activeProductIndex+delta+activeRange.products.length)%activeRange.products.length;
+      await catalogueLaunch(activeRange.products[index],activeRange,index);
+    }
+    $('previousModel').addEventListener('click',()=>navigateModel(-1));
+    $('nextModel').addEventListener('click',()=>navigateModel(1));
+    function catalogueShowRanges(){
+      $('catalogueTitle').textContent='Choose a furniture range';
+      $('catalogueDescription').textContent='Select OPUS to open the furniture viewer.';
+      $('catalogueBack').hidden=true;catalogueGrid.replaceChildren();
+      furnitureCatalogue.forEach(range=>{
+        const button=document.createElement('button');button.type='button';button.className='catalogueTile';
+        const title=document.createElement('strong');title.textContent=range.name;
+        const subtitle=document.createElement('small');subtitle.textContent='Open furniture viewer →';
+        button.append(title,subtitle);button.addEventListener('click',()=>catalogueLaunch(range.products[0],range,0));catalogueGrid.append(button);
+      });
+    }
+    function catalogueShowProducts(range){
+      $('catalogueTitle').textContent=range.name;
+      $('catalogueDescription').textContent='Choose a furniture model to launch the interactive 3D viewer.';
+      $('catalogueBack').hidden=false;catalogueGrid.replaceChildren();
+      range.products.forEach((product,index)=>{
+        const button=document.createElement('button');button.type='button';button.className='catalogueTile';
+        const title=document.createElement('strong');title.textContent=product.name;
+        const subtitle=document.createElement('small');subtitle.textContent='Launch 3D viewer →';
+        button.append(title,subtitle);button.addEventListener('click',()=>catalogueLaunch(product,range,index));catalogueGrid.append(button);
+      });
+    }
+    async function catalogueLaunch(product,range=null,index=0){
+      if(product.type==='demo'){
+        setModel(makeDemo(),product.name);activeRange=range;activeProductIndex=index;catalogueScreen.hidden=true;document.body.classList.add('catalogueViewing');updateModelNavigation();invalidate();return;
+      }
+      const prefix=product.folder?product.folder.replace(/\/$/,'')+'/':'';
+      const modelNames=product.models || [product.model];
+      // Each texture remains a separate UDIM tile, assigned by the mesh's UV coordinates.
+      // Only request one set of PBR maps; avoid downloading duplicate legacy variants.
+      const udimTiles=product.udimTiles || [1001,1002,1011,1012,1013];
+      const udimChannels=product.udimChannels || ['BaseColor','Normal_OpenGL','Roughness','Metallic'];
+      const textureNames=product.textures==='legacy'
+        ? udimTiles.flatMap(tile=>udimChannels.map(kind=>`Model_${kind}_${tile}.png`)) : [];
+      const names=[...modelNames,...textureNames];
+      busy(true,'Loading '+product.name+'…');updateModelNavigation();
+      try{
+        // GitHub Pages serves the repository root at /BUS-APP/.
+        // Fetch all the actual OBJ components and texture tiles from that same root.
+        const files=await Promise.all(names.map(async name=>{
+          const response=await fetch(new URL(prefix+name,document.baseURI),{cache:'default'});
+          if(!response.ok){
+            // Missing texture channels should not prevent the geometry from opening.
+            if(/\.(png|jpe?g|webp)$/i.test(name)){console.warn('UDIM tile unavailable:',name,response.status);return null;}
+            throw new Error(`${name}: HTTP ${response.status}`);
+          }
+          return new File([await response.blob()],name,{type:name.toLowerCase().endsWith('.obj')?'text/plain':'image/png'});
+        }));
+        const availableFiles=files.filter(Boolean);
+        const combined=new THREE.Group();
+        combined.name=product.name;
+        for(const name of modelNames){
+          const file=availableFiles.find(f=>f.name===name);
+          const parsed=new OBJLoader().parse(await file.text());
+          parsed.name=name.replace(/\.obj$/i,'');
+          combined.add(parsed);
+        }
+        const udimCount=await applyUDIM(combined,availableFiles);
+        setModel(combined,product.name,fileSize(availableFiles.reduce((n,f)=>n+f.size,0))+' total');
+        activeRange=range;activeProductIndex=index;
+        catalogueScreen.hidden=true;
+        document.body.classList.add('catalogueViewing');
+        updateModelNavigation();
+        invalidate();
+        toast(udimCount?`Loaded ${modelNames.length} components with ${udimCount} UDIM assignments.`:`Loaded ${modelNames.length} components.`);
+      }catch(err){console.error(err);toast('Could not load '+product.name+': '+err.message)}
+      finally{busy(false);updateModelNavigation()}
+    }
+    $('catalogueBack').addEventListener('click',catalogueShowRanges);
+    $('catalogueReturn').addEventListener('click',()=>{
+      if(overheadInspection)resetOrbit();
+      catalogueScreen.hidden=false;document.body.classList.remove('catalogueViewing');updateModelNavigation();catalogueShowRanges();
+    });
+    catalogueShowRanges();
+    // Set up the renderer without loading a model until a product is selected.
+    requestAnimationFrame(()=>{
+      const w=Math.max(1,canvasHost.clientWidth),h=Math.max(1,canvasHost.clientHeight);
+      camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h,false);
+      invalidate();
+    });
+  </script>
+
+<style>
+#basketLaunch{position:fixed;right:18px;bottom:20px;z-index:12;border:0;border-radius:40px;background:#c8f38c;color:#182515;font-weight:800;padding:14px 19px;box-shadow:0 6px 24px #0008}#basketCount{background:#213324;color:white;border-radius:30px;padding:3px 7px;margin-left:6px}
+#basketModal{position:fixed;inset:0;z-index:30;background:#000b;display:none;align-items:center;justify-content:center;padding:15px}#basketModal.active{display:flex}.basketCard{background:#182331;border:1px solid #586678;color:#f5f8fc;border-radius:20px;width:min(540px,100%);max-height:92dvh;overflow:auto;padding:22px;box-shadow:0 20px 80px #0009}.basketCard label{display:block;font-size:12px;margin:12px 0 4px;color:#d4dce7}.basketCard input,.basketCard textarea{width:100%;padding:12px;background:#101925;border:1px solid #526070;border-radius:9px;color:white;font:inherit}.basketCard button{border:0;border-radius:10px;padding:11px 15px;background:#c8f38c;color:#192515;font-weight:750;cursor:pointer}.basketCard .secondary{background:#344255;color:white}.basketRow{border-bottom:1px solid #445161;padding:10px 0;display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:13px}.basketRow input{width:66px}.basketCard .muted{color:#aebccc;font-size:12px;line-height:1.5}#basketLaunch{bottom:calc(88px + env(safe-area-inset-bottom))}@media(min-width:841px){#basketLaunch{bottom:24px}}
+</style>
+<button id="basketLaunch" type="button">Basket <span id="basketCount">0</span></button>
+<div id="basketModal" role="dialog" aria-modal="true" aria-label="Order basket"><div class="basketCard">
+<div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Furniture order basket</h2><button class="secondary" id="basketClose">Close</button></div>
+<p class="muted">Add products and prepare an order request for your admin team. This does not take payment or send automatically.</p>
+<label for="productName">Product name</label><input id="productName" value="Oak bedside cabinet" maxlength="120">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div><label for="productSku">Product code</label><input id="productSku" value="OAK-001" maxlength="60"></div><div><label for="productPrice">Unit price (£)</label><input id="productPrice" type="number" min="0" step="0.01" value="249.99"></div></div>
+<label for="productFinish">Finish / configuration</label><input id="productFinish" value="Natural oak" maxlength="120">
+<button id="basketAdd" style="margin-top:12px">+ Add to basket</button><h3>Items</h3><div id="basketItems"></div><p style="font-weight:800" id="basketTotal">Subtotal: £0.00</p>
+<label for="orderAdmin">Admin team email</label><input id="orderAdmin" type="email" placeholder="orders@yourcompany.co.uk" required>
+<label for="orderCustomer">Customer name</label><input id="orderCustomer" autocomplete="name" required>
+<label for="orderEmail">Customer email</label><input id="orderEmail" type="email" autocomplete="email" required>
+<label for="orderAddress">Delivery address</label><textarea id="orderAddress" rows="2" required></textarea>
+<label for="orderNotes">Order notes</label><textarea id="orderNotes" rows="2"></textarea>
+<button id="basketSend" style="width:100%;margin-top:14px">Prepare email to admin</button><p class="muted" id="basketStatus" role="status">Your email app opens with a prefilled order. Review it and press Send. No invoice is issued automatically.</p>
+</div></div>
+<script>
+(()=>{
+const $=id=>document.getElementById(id);let basket=[];
+const money=n=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'}).format(n);
+const safe=s=>String(s||'').trim();
+function render(){let total=0,count=0;const box=$('basketItems');box.replaceChildren();basket.forEach((item,i)=>{total+=item.price*item.qty;count+=item.qty;const row=document.createElement('div');row.className='basketRow';const desc=document.createElement('span');desc.textContent=`${item.name} (${item.sku}) · ${item.finish} · ${money(item.price)}`;const qty=document.createElement('input');qty.type='number';qty.min='1';qty.max='999';qty.value=item.qty;qty.setAttribute('aria-label','Quantity for '+item.name);qty.onchange=()=>{item.qty=Math.min(999,Math.max(1,parseInt(qty.value,10)||1));render()};const remove=document.createElement('button');remove.className='secondary';remove.textContent='×';remove.setAttribute('aria-label','Remove '+item.name);remove.onclick=()=>{basket.splice(i,1);render()};row.append(desc,qty,remove);box.append(row)});if(!basket.length)box.textContent='Your basket is empty.';$('basketCount').textContent=count;$('basketTotal').textContent='Subtotal: '+money(total)+' (delivery and taxes subject to confirmation)'}
+$('basketLaunch').onclick=()=>{$('basketModal').classList.add('active')};$('basketClose').onclick=()=>{$('basketModal').classList.remove('active')};$('basketModal').addEventListener('click',e=>{if(e.target===$('basketModal'))$('basketClose').click()});document.addEventListener('keydown',e=>{if(e.key==='Escape')$('basketClose').click()});
+$('basketAdd').onclick=()=>{const name=safe($('productName').value),sku=safe($('productSku').value),finish=safe($('productFinish').value),price=Number($('productPrice').value);if(!name||!Number.isFinite(price)||price<0){$('basketStatus').textContent='Enter a product name and valid price.';return}const found=basket.find(i=>i.name===name&&i.sku===sku&&i.finish===finish&&i.price===price);if(found)found.qty++;else basket.push({name,sku,finish,price,qty:1});$('basketStatus').textContent='Added to basket.';render()};
+$('basketSend').onclick=()=>{const admin=safe($('orderAdmin').value),customer=safe($('orderCustomer').value),email=safe($('orderEmail').value),address=safe($('orderAddress').value);if(!basket.length||!admin||!customer||!email||!address||!$('orderAdmin').checkValidity()||!$('orderEmail').checkValidity()){$('basketStatus').textContent='Add at least one product and complete all required contact fields.';return}const subtotal=basket.reduce((sum,i)=>sum+i.price*i.qty,0);const ref='REQ-'+new Date().toISOString().replace(/[-:TZ.]/g,'').slice(0,14);const lines=[`ORDER REQUEST ${ref}`,'','Customer: '+customer,'Email: '+email,'Delivery address: '+address,'Notes: '+safe($('orderNotes').value),'','ITEMS',...basket.map(i=>`${i.qty} x ${i.name} [${i.sku}] | ${i.finish} | ${money(i.price)} each | ${money(i.qty*i.price)}`),'','Subtotal: '+money(subtotal),'Delivery, VAT treatment and final total to be confirmed by admin.','This is an order request, not a tax invoice or payment confirmation.'];const url='mailto:'+encodeURIComponent(admin)+'?subject='+encodeURIComponent('Furniture order request '+ref)+'&body='+encodeURIComponent(lines.join('\n'));if(url.length>1800){$('basketStatus').textContent='Order too long for an email link. Reduce notes/items or use a server-backed form.';return}window.location.href=url;$('basketStatus').textContent='Email app requested. You must press Send there; this website cannot confirm delivery.'};render();
+})();
+</script>
+</body>
+</html>
